@@ -1,0 +1,10 @@
+/build/
+/.cache/
+/.cmake/
+CMakeFiles/
+CMakeCache.txt
+compile_commands.json
+*.log
+*.sumstats
+*.summary.txt
+
