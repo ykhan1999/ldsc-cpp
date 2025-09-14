@@ -15,7 +15,8 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-
+// Avoid ODR clash with the global Logger used by ph2.cpp
+#define Logger MungeLogger
 using namespace std;
 
 // ---------- Thread-safe logger ----------
@@ -515,3 +516,5 @@ int run_munge(int argc, char** argv){
         return 1;
     }
 }
+#undef Logger
+
