@@ -5,11 +5,61 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
-# 👇 add this block
 permissions:
   contents: write
 
 jobs:
+  # ---- Linux (portable glibc 2.17) ----
+  build-linux:
+    name: Build (linux-x86_64 glibc2.17)
+    runs-on: ubuntu-22.04
+    container: quay.io/pypa/manylinux2014_x86_64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain (manylinux2014)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          source /opt/rh/devtoolset-10/enable
+          /opt/python/cp311-cp311/bin/python -m pip install --upgrade pip
+          /opt/python/cp311-cp311/bin/pip install cmake ninja
+          cmake --version
+          ninja --version
+
+      - name: Configure
+        shell: bash
+        run: |
+          set -euxo pipefail
+          source /opt/rh/devtoolset-10/enable
+          export PATH="/opt/python/cp311-cp311/bin:$PATH"
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLDSC_PORTABLE_LINUX=ON
+
+      - name: Build
+        shell: bash
+        run: |
+          set -euxo pipefail
+          source /opt/rh/devtoolset-10/enable
+          export PATH="/opt/python/cp311-cp311/bin:$PATH"
+          cmake --build build --parallel
+
+      - name: Package (Linux)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p dist bundle
+          cp build/ldsc bundle/ldsc
+          strip bundle/ldsc || true
+          for f in LICENSE AUTHORS NOTICE CREDITS; do [ -f "$f" ] && cp "$f" bundle/ || true; done
+          tar czf "dist/ldsc_linux-x86_64_glibc2.17.tar.gz" -C bundle .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ldsc-linux-x86_64-glibc2.17
+          path: dist/*
+
+  # ---- macOS + Windows ----
   build:
     name: Build (${{ matrix.triplet }})
     runs-on: ${{ matrix.os }}
@@ -17,9 +67,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-22.04
-            triplet: linux-x86_64
-            configure: release
           - os: macos-13
             triplet: macos-x86_64
             configure: macos-release
@@ -29,34 +76,21 @@ jobs:
           - os: windows-latest
             triplet: windows-x86_64
             configure: windows-release-staticcrt
-
     steps:
       - uses: actions/checkout@v4
 
-      # Linux toolchain
-      - name: Toolchain (Linux)
-        if: startsWith(matrix.os, 'ubuntu')
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build build-essential
-          # Optional OpenMP runtime
-          sudo apt-get install -y libomp-dev || true
-
-      # macOS: CMake & Ninja are already on the runner; don't reinstall.
       - name: Toolchain (macOS)
         if: startsWith(matrix.os, 'macos')
         run: |
           cmake --version
           ninja --version || true
 
-      # Only ensure libomp exists on macOS
       - name: Install OpenMP runtime (macOS)
         if: startsWith(matrix.os, 'macos')
         run: |
           brew update
           brew list --versions libomp >/dev/null || brew install libomp
 
-      # Windows: ensure Ninja present (usually preinstalled, but safe)
       - name: Toolchain (Windows)
         if: runner.os == 'Windows'
         run: |
@@ -69,7 +103,6 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
-      # Package (Windows) — use built-in Compress-Archive (no zip dependency)
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -78,14 +111,11 @@ jobs:
           $exe = "build/ldsc.exe"
           if (Test-Path "build/Release/ldsc.exe") { $exe = "build/Release/ldsc.exe" }
           Copy-Item $exe bundle\ldsc.exe
-
           foreach ($f in 'LICENSE','AUTHORS','NOTICE','CREDITS') {
             if (Test-Path $f) { Copy-Item $f bundle\ }
           }
-
           Compress-Archive -Path bundle\* -DestinationPath "dist/ldsc_${{ matrix.triplet }}.zip" -Force
 
-      # Package (*nix)
       - name: Package (Linux/macOS)
         if: runner.os != 'Windows'
         shell: bash
@@ -95,9 +125,7 @@ jobs:
           bin="build/ldsc"; [[ -f "build/Release/ldsc" ]] && bin="build/Release/ldsc"
           cp "$bin" bundle/ldsc
           chmod +x bundle/ldsc
-          for f in LICENSE AUTHORS NOTICE CREDITS; do
-            [[ -f "$f" ]] && cp "$f" bundle/ || true
-          done
+          for f in LICENSE AUTHORS NOTICE CREDITS; do [[ -f "$f" ]] && cp "$f" bundle/ || true; done
           tar czf "dist/ldsc_${{ matrix.triplet }}.tar.gz" -C bundle .
 
       - name: Upload artifact
@@ -137,9 +165,11 @@ jobs:
 
   release:
     name: Publish GitHub Release
-    needs: [build, macos-universal]
+    needs: [build-linux, build, macos-universal]
     runs-on: ubuntu-22.04
     if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -147,7 +177,7 @@ jobs:
       - name: Gather files
         run: |
           mkdir out
-          find artifacts -type f -name '*.zip' -or -name '*.tar.gz' -print0 | xargs -0 -I{} cp {} out/
+          find artifacts -type f -name '*.zip' -o -name '*.tar.gz' -print0 | xargs -0 -I{} cp {} out/
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
