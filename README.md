@@ -14,14 +14,15 @@ It outputs human-readable logs and a *.summary.txt with headline estimates.
 
 Getting started: Prebuilt binaries
 -------------------------------
-Linux x86_64: https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.3.0/ldsc_linux-x86_64.tar.gz
-Windows x86_64: https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.3.0/ldsc_windows-x86_64.zip
-MacOS (all architectures): https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.3.0/ldsc_macos-universal.tar.gz
+Linux x86_64: https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.3.1/ldsc_linux-x86_64.tar.gz
+Windows x86_64: https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.3.1/ldsc_windows-x86_64.zip
+MacOS (all architectures): https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.3.1/ldsc_macos-universal.tar.gz
 
 Installation Instructions:
 
 Linux:
 ```bash
+wget https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.3.1/ldsc_linux-x86_64.tar.gz
 tar xzf ldsc_linux-x86_64.tar.gz
 chmod +x ldsc
 ./ldsc --version
@@ -31,6 +32,7 @@ ldd ./ldsc
 
 MacOS:
 ```bash
+wget https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.3.1/ldsc_macos-universal.tar.gz
 tar xzf ldsc_macos-universal.tar.gz
 chmod +x ldsc
 xattr -d com.apple.quarantine ldsc
