@@ -5,6 +5,10 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+# 👇 add this block
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build (${{ matrix.triplet }})
