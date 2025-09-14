@@ -68,7 +68,7 @@ Quick start with sample GWAS data
    --A2 Other_Allele \
    --eff_col BETA \
    --eff_type beta \
-   --merge-alleles ~/Documents/ldsc_cpp/w_hm3.snplist \
+   --merge-alleles w_hm3.snplist \
      --N 700000
 	```
 	
