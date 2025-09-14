@@ -10,19 +10,6 @@
 // belongs to the LDSC authors. See the CREDITS and NOTICE files for details.
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "subcommand.hpp"
 #include "munge.hpp"
@@ -30,6 +17,24 @@
 #include <iostream>
 #include <string>
 
+// -------- Safe defaults for metadata (avoid #ifdef in stream expressions) ----
+#ifndef PROJECT_NAME_STR
+#  define PROJECT_NAME_STR "ldsc-cpp"
+#endif
+#ifndef PROJECT_VERSION_STR
+#  define PROJECT_VERSION_STR "0.0.0"
+#endif
+#ifndef PROJECT_LICENSE_STR
+#  define PROJECT_LICENSE_STR "GPL-3.0-or-later"
+#endif
+#ifndef PROJECT_URL_STR
+#  define PROJECT_URL_STR "https://github.com/ykhan1999/ldsc-cpp"
+#endif
+#ifndef PROJECT_AUTHOR_STR
+#  define PROJECT_AUTHOR_STR "Yousef Khan"
+#endif
+
+// -------- GNU license texts ---------------------------------------------------
 static const char* kWarranty =
 "This program comes with ABSOLUTELY NO WARRANTY.\n"
 "For details see the \"Disclaimer of Warranty\" section of the GNU GPL v3:\n"
@@ -48,6 +53,7 @@ static const char* kCredits =
 "  and collaborators. All credit for the original methodology and\n"
 "  reference implementation belongs to the LDSC authors.\n";
 
+// -------- UX helpers ----------------------------------------------------------
 static int usage() {
   std::cerr <<
     "Usage:\n"
@@ -64,27 +70,14 @@ static int usage() {
 
 static void interactive_banner() {
   std::cout
-#ifdef PROJECT_NAME_STR
-    << PROJECT_NAME_STR;
-#else
-    << "ldsc-cpp";
-#endif
-
-#ifdef PROJECT_VERSION_STR
-  std::cout << " " << PROJECT_VERSION_STR;
-#endif
-  std::cout << " — GPL-3.0-or-later\n";
-
-#ifdef PROJECT_URL_STR
-  std::cout << PROJECT_URL_STR << "\n";
-#endif
-  std::cout <<
-    "Acknowledgment: inspired by the original LDSC (ldsc) work by Bulik-Sullivan\n"
-    "et al. (Price Lab) and collaborators.\n"
-    "This program comes with ABSOLUTELY NO WARRANTY; for details type `show w`.\n"
-    "This is free software; you may redistribute it under certain conditions;\n"
-    "type `show c` for details. Type `show credits` for acknowledgments.\n\n"
-    "Type `quit` to exit.\n";
+    << PROJECT_NAME_STR << " " << PROJECT_VERSION_STR << " — " << PROJECT_LICENSE_STR << "\n"
+    << PROJECT_URL_STR << "\n"
+    << "Acknowledgment: inspired by the original LDSC (ldsc) work by Bulik-Sullivan\n"
+       "et al. (Price Lab) and collaborators.\n"
+       "This program comes with ABSOLUTELY NO WARRANTY; for details type `show w`.\n"
+       "This is free software; you may redistribute it under certain conditions;\n"
+       "type `show c` for details. Type `show credits` for acknowledgments.\n\n"
+       "Type `quit` to exit.\n";
 
   std::string line;
   while (true) {
@@ -110,23 +103,10 @@ int main(int argc, char** argv) {
   // Global flags that short-circuit execution
   if (cmd == "--version" || cmd == "-V") {
     std::cout
-#ifdef PROJECT_NAME_STR
-      << PROJECT_NAME_STR << " ";
-#else
-      << "ldsc-cpp ";
-#endif
-#ifdef PROJECT_VERSION_STR
-      << PROJECT_VERSION_STR;
-#else
-      << "0.0.0";
-#endif
-    std::cout << " — GPL-3.0-or-later\n";
-#ifdef PROJECT_URL_STR
-    std::cout << PROJECT_URL_STR << "\n";
-#endif
-    std::cout <<
-      "Acknowledgment: inspired by the original LDSC (ldsc) work by Bulik-Sullivan\n"
-      "et al. (Price Lab) and collaborators.\n";
+      << PROJECT_NAME_STR << " " << PROJECT_VERSION_STR << " — " << PROJECT_LICENSE_STR << "\n"
+      << PROJECT_URL_STR << "\n"
+      << "Acknowledgment: inspired by the original LDSC (ldsc) work by Bulik-Sullivan\n"
+         "et al. (Price Lab) and collaborators.\n";
     return 0;
   }
   if (cmd == "--license")  { std::cout << kConditions; return 0; }

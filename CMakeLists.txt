@@ -57,6 +57,14 @@ add_executable(ldsc
   src/logger.cpp
 )
 
+target_compile_definitions(ldsc PRIVATE
+  PROJECT_NAME_STR="ldsc-cpp"
+  PROJECT_VERSION_STR="${PROJECT_VERSION}"
+  PROJECT_LICENSE_STR="GPL-3.0-or-later"
+  PROJECT_URL_STR="https://github.com/ykhan1999/ldsc-cpp"
+  PROJECT_AUTHOR_STR="Yousef Khan"
+)
+
 target_include_directories(ldsc PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # Project metadata exposed to the binary (for --version / banner)
