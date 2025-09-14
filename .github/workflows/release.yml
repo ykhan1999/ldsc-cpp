@@ -21,7 +21,9 @@ jobs:
         run: |
           set -euxo pipefail
           cat > manylinux_build.sh <<'SH'
-          set -euxo pipefail
+          #!/usr/bin/env bash
+          set -euo pipefail
+          export MANPATH="${MANPATH:-}"
           source /opt/rh/devtoolset-10/enable
           /opt/python/cp311-cp311/bin/python -m pip install --upgrade pip
           /opt/python/cp311-cp311/bin/pip install cmake ninja
