@@ -71,12 +71,15 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist,bundle | Out-Null
-          $exe = Test-Path 'build/Release/ldsc.exe' ? 'build/Release/ldsc.exe' : 'build/ldsc.exe'
+          $exe = "build/ldsc.exe"
+          if (Test-Path "build/Release/ldsc.exe") { $exe = "build/Release/ldsc.exe" }
           Copy-Item $exe bundle\ldsc.exe
+
           foreach ($f in 'LICENSE','AUTHORS','NOTICE','CREDITS') {
             if (Test-Path $f) { Copy-Item $f bundle\ }
           }
-          Compress-Archive -Path bundle\* -DestinationPath dist\ldsc_${{ matrix.triplet }}.zip -Force
+
+          Compress-Archive -Path bundle\* -DestinationPath "dist/ldsc_${{ matrix.triplet }}.zip" -Force
 
       # Package (*nix)
       - name: Package (Linux/macOS)
