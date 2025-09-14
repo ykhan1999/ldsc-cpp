@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(ldsc_cpp LANGUAGES CXX VERSION 0.1.0)
+project(ldsc_cpp LANGUAGES CXX VERSION 0.2.0a)
 
 # ---- Language/flags ---------------------------------------------------------
 set(CMAKE_CXX_STANDARD 17)
