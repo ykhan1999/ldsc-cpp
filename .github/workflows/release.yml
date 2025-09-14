@@ -13,45 +13,25 @@ jobs:
   build-linux:
     name: Build (linux-x86_64 glibc2.17)
     runs-on: ubuntu-22.04
-    container: quay.io/pypa/manylinux2014_x86_64
     steps:
       - uses: actions/checkout@v4
 
-      - name: Toolchain (manylinux2014)
-        shell: bash
+      - name: Build inside manylinux2014 container
         run: |
+          docker run --rm -v "$PWD":/io -w /io quay.io/pypa/manylinux2014_x86_64 bash -lc '
           set -euxo pipefail
           source /opt/rh/devtoolset-10/enable
           /opt/python/cp311-cp311/bin/python -m pip install --upgrade pip
           /opt/python/cp311-cp311/bin/pip install cmake ninja
-          cmake --version
-          ninja --version
-
-      - name: Configure
-        shell: bash
-        run: |
-          set -euxo pipefail
-          source /opt/rh/devtoolset-10/enable
           export PATH="/opt/python/cp311-cp311/bin:$PATH"
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLDSC_PORTABLE_LINUX=ON
-
-      - name: Build
-        shell: bash
-        run: |
-          set -euxo pipefail
-          source /opt/rh/devtoolset-10/enable
-          export PATH="/opt/python/cp311-cp311/bin:$PATH"
           cmake --build build --parallel
-
-      - name: Package (Linux)
-        shell: bash
-        run: |
-          set -euxo pipefail
           mkdir -p dist bundle
           cp build/ldsc bundle/ldsc
           strip bundle/ldsc || true
           for f in LICENSE AUTHORS NOTICE CREDITS; do [ -f "$f" ] && cp "$f" bundle/ || true; done
-          tar czf "dist/ldsc_linux-x86_64_glibc2.17.tar.gz" -C bundle .
+          tar czf dist/ldsc_linux-x86_64_glibc2.17.tar.gz -C bundle .
+        '
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
