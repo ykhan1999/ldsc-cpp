@@ -1,10 +1,6 @@
-ldsc-cpp
+# ldsc-cpp
 
-Acknowledgement (credit):
-This project is an independent C++ reimplementation inspired by the original LDSC (LD Score Regression)
-developed by Brendan K. Bulik-Sullivan, Hilary K. Finucane, Po-Ru Loh, Alkes Price, and collaborators.
-The original LDSC is licensed under GPL-3.0 and is available at the Price Lab’s repository. This project
-follows GPL-3.0 and owes substantial conceptual credit to those authors.
+> **Acknowledgement (credit):** This project is an independent C++ reimplementation inspired by the original **LDSC (LD Score Regression)** developed by Brendan K. Bulik-Sullivan, Hilary K. Finucane, Po-Ru Loh, Alkes Price, and collaborators. The original LDSC is licensed under GPL-3.0 and is available at the Price Lab’s repository. This project follows GPL-3.0 and owes substantial conceptual credit to those authors.
 
 What is this?
 -------------
