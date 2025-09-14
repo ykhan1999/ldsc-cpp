@@ -23,7 +23,7 @@ Installation Instructions:
 Linux:
 ```bash
 wget https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.3.5/ldsc_linux-x86_64_glibc2.17.tar.gz
-tar xzf ldsc_linux-x86_64.tar.gz
+tar xzf ldsc_linux-x86_64_glibc2.17.tar.gz
 chmod +x ldsc
 ./ldsc --version
 # optional sanity
