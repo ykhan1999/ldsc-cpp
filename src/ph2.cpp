@@ -165,7 +165,8 @@ struct Sumstats {
     std::vector<double> Z, N;
 };
 
-static Sumstats read_sumstats(const std::string& path) {
+// ---- FIX: sanitize while reading sumstats; drop non-finite Z or N<=0 ----
+static Sumstats read_sumstats(const std::string& path, Logger& log) {
     std::ifstream in(path);
     if (!in) throw std::runtime_error("Could not open sumstats: "+path);
     std::string line; if (!std::getline(in,line)) throw std::runtime_error("Empty sumstats: "+path);
@@ -175,15 +176,29 @@ static Sumstats read_sumstats(const std::string& path) {
         if (hdr[i]=="SNP") iS=i; else if (hdr[i]=="Z") iZ=i; else if (hdr[i]=="N") iN=i;
     }
     if (iS<0||iZ<0||iN<0) throw std::runtime_error("sumstats must have SNP Z N columns");
+
     Sumstats ss;
+    size_t total_read=0, drop_missing=0, drop_nonfinite=0, drop_badN=0;
     while (std::getline(in,line)){
         if (line.empty()) continue;
+        ++total_read;
         auto f = split_ws(line);
-        if ((int)f.size() <= std::max(iS,std::max(iZ,iN))) continue;
-        ss.snp.push_back(f[iS]);
-        ss.Z.push_back(std::strtod(f[iZ].c_str(), nullptr));
-        ss.N.push_back(std::strtod(f[iN].c_str(), nullptr));
+        if ((int)f.size() <= std::max(iS,std::max(iZ,iN))) { ++drop_missing; continue; }
+        const std::string& s_snp = f[iS];
+        const std::string& s_z   = f[iZ];
+        const std::string& s_n   = f[iN];
+        if (s_snp.empty()) { ++drop_missing; continue; }
+        char* e1=nullptr; double z = std::strtod(s_z.c_str(), &e1);
+        char* e2=nullptr; double n = std::strtod(s_n.c_str(), &e2);
+        if (!e1 || *e1!='\0' || !std::isfinite(z)) { ++drop_nonfinite; continue; }
+        if (!e2 || *e2!='\0' || !std::isfinite(n) || !(n>0)) { ++drop_badN; continue; }
+        ss.snp.push_back(s_snp);
+        ss.Z.push_back(z);
+        ss.N.push_back(n);
     }
+    log.log("Read ", (int)ss.snp.size(), " SNPs from sumstats (parsed ", total_read,
+            "; dropped missing=", drop_missing, ", non-finite Z=", drop_nonfinite,
+            ", bad/<=0 N=", drop_badN, ").");
     return ss;
 }
 
@@ -310,22 +325,34 @@ static MergeResult merge_sumstats_ld(const Sumstats& ss, const Table& refld, con
     MergeResult r;
     r.annot_names = refld.cols;
     r.annot.resize(refld.cols.size());
-    size_t dropped = 0;
+    size_t dropped = 0, dropped_nonfinite = 0;
     for (size_t i=0;i<ss.snp.size();++i){
         auto it1 = idx_ref.find(ss.snp[i]);
         auto it2 = idx_w.find(ss.snp[i]);
         if (it1==idx_ref.end() || it2==idx_w.end()) { dropped++; continue; }
         int ir = it1->second, iw = it2->second;
+
+        const double z = ss.Z[i];
+        const double n = ss.N[i];
+        if (!std::isfinite(z) || !std::isfinite(n) || !(n>0)) { dropped_nonfinite++; continue; }
+
+        // require finite annotations
+        bool ok=true; for (size_t j=0;j<refld.cols.size();++j){
+            double l = refld.data[j][ir];
+            if (!std::isfinite(l)) { ok=false; break; }
+        }
+        if (!ok) { dropped_nonfinite++; continue; }
+
         r.snp.push_back(ss.snp[i]);
-        double z = ss.Z[i];
         r.y_chisq.push_back(z*z);
-        r.N.push_back(ss.N[i]);
+        r.N.push_back(n);
         for (size_t j=0;j<refld.cols.size();++j) r.annot[j].push_back(refld.data[j][ir]);
+
         if (wld.cols.size()!=1) throw std::runtime_error("--w-ld/--w-ld-chr must yield exactly one weight column.");
-        r.wld.push_back(wld.data[0][iw]);
+        r.wld.push_back(wld.data[0][iw]); // may be <=0; handled in weighting
     }
     if (r.snp.empty()) throw std::runtime_error("After merging sumstats with LD files, no SNPs remain.");
-    log.log("After merging, ", r.snp.size(), " SNPs remain (dropped ", dropped, ").");
+    log.log("After merging, ", r.snp.size(), " SNPs remain (dropped ", dropped, "; non-finite/filter=", dropped_nonfinite, ").");
     return r;
 }
 
@@ -483,21 +510,16 @@ static void weights_step2(const MergeResult& R,
     int offs = have_intercept ? 1 : 0;
     w.resize(n);
     for (int i=0;i<n;++i){
-        // linear predictor from annotations only (exclude intercept)
         long double lp = 0.0L;
         for (int j=0;j<k;++j){
             lp += (long double)beta1[j+offs] * (long double)R.annot[j][i];
         }
-        // expected chi^2 ≈ intercept + lp; LDSC caps χ² at 30 for weighting.
-        // We emulate by capping the total expectation to 30.
         long double exp_chi2 = (have_intercept ? (long double)beta1[0] : 1.0L) + lp;
         if (exp_chi2 < 1.0L) exp_chi2 = 1.0L;
         if (exp_chi2 > 30.0L) exp_chi2 = 30.0L;
 
-        // weights use (1 + polygenic term) ≈ exp_chi2, so:
-        long double denom_scale = exp_chi2; // equivalent to (1 + N h2 L2 / M) in 1-annot case
         double base = R.wld[i]; if (!(base>0)) base = 1.0;
-        long double denom = (long double)base * denom_scale * denom_scale;
+        long double denom = (long double)base * exp_chi2 * exp_chi2;
         if (!(denom>0)) denom = 1.0L;
         w[i] = 1.0 / (double)denom;
     }
@@ -510,9 +532,9 @@ int run_ph2(int argc, char** argv) {
     echo_call(log, args);
 
     try {
-        // 1) Sumstats
+        // 1) Sumstats (sanitized)
         log.log("Reading sumstats from ", args.sumstats, " ...");
-        Sumstats ss = read_sumstats(args.sumstats);
+        Sumstats ss = read_sumstats(args.sumstats, log);
         log.log("Read ", (int)ss.snp.size(), " SNPs from sumstats.");
 
         // 2) LD files
@@ -528,7 +550,7 @@ int run_ph2(int argc, char** argv) {
             : read_ld_flat(args.w_ld, pick_w_cols);
         if (wld.cols.size()!=1) throw std::runtime_error("--w-ld/--w-ld-chr must yield exactly one weight column.");
 
-        // 3) Merge
+        // 3) Merge (drops rows with any non-finite key values)
         MergeResult R = merge_sumstats_ld(ss, refld, wld, log);
 
         // 4) M vector
@@ -559,9 +581,8 @@ int run_ph2(int argc, char** argv) {
             }
         }
 
-        // 5) Zero-variance annotation pruning (after M prepared; we’ll keep M aligned)
+        // 5) Zero-variance annotation pruning (after M prepared; keep M aligned)
         {
-            // If we drop columns, mirror-drop in M as well
             std::vector<int> keep;
             for (size_t j=0;j<R.annot.size();++j){
                 const auto& col = R.annot[j];
@@ -583,20 +604,23 @@ int run_ph2(int argc, char** argv) {
             }
         }
 
-        // 6) Some QC prints (from raw y)
+        // 6) QC prints — compute from finite χ² only (no top-coding)
+        std::vector<double> chisq; chisq.reserve(R.y_chisq.size());
+        for (double v: R.y_chisq) if (std::isfinite(v)) chisq.push_back(v);
+        if (chisq.empty()) throw std::runtime_error("No finite chi^2 after parsing Z.");
         {
-            const auto& y0 = R.y_chisq;
-            long double mean=0.0L; for (double v: y0) mean += v; mean/=std::max(1,(int)y0.size());
-            std::vector<double> tmp=y0;
+            long double sum=0.0L; for (double c: chisq) sum += c;
+            double mean = (double)(sum / (long double)chisq.size());
+            std::vector<double> tmp = chisq;
             std::nth_element(tmp.begin(), tmp.begin()+tmp.size()/2, tmp.end());
             double med = tmp[tmp.size()/2];
-            double mx = *std::max_element(y0.begin(), y0.end());
-            log.log("Mean chi^2 = ", (double)mean);
+            double mx = *std::max_element(chisq.begin(), chisq.end());
+            log.log("Mean chi^2 = ", mean);
             log.log("Lambda GC = ", med/0.4549);
             log.log("Max chi^2 = ", mx);
         }
 
-        // 7) Two-step estimator with χ² cap for weighting
+        // 7) Two-step estimator with χ² cap for weighting (not for QC stats)
         log.log("Using two-step estimator with cutoff at 30.");
 
         const bool include_intercept = std::isnan(args.intercept_h2); // default: free intercept
@@ -611,18 +635,17 @@ int run_ph2(int argc, char** argv) {
         // If intercept is fixed (no_intercept / intercept-h2), subtract it from y as per LDSC semantics.
         std::vector<double> y = R.y_chisq;
         if (!include_intercept) {
-            // intercept_h2 given: subtract that constant from y
             for (double& v: y) v -= args.intercept_h2;
         }
 
-        // STEP 1 regression (jackknife for SE won’t be used; we just need betas)
+        // STEP 1 regression (jackknife to get beta1 for step-2 weights)
         std::vector<double> beta1, se1;
         jackknife(X1, w1, y, std::min(args.n_blocks, (int)R.snp.size()), beta1, se1);
 
         // STEP 2: reweight using step-1 betas with χ² cap=30
         std::vector<double> w2; weights_step2(R, beta1, include_intercept, w2);
 
-        // STEP 2 regression (final): get betas & SEs
+        // STEP 2 regression (final): betas & SEs
         std::vector<double> beta, se;
         jackknife(X1, w2, y, std::min(args.n_blocks, (int)R.snp.size()), beta, se);
 
@@ -630,39 +653,35 @@ int run_ph2(int argc, char** argv) {
         double h2_obs=0.0, h2_se=0.0;
         h2_from_betas(beta, se, include_intercept, M, N_bar, h2_obs, h2_se);
 
-        // 10) Log summary
+        // 9) Log summary (again from finite-only chisq)
         {
-            const auto& y0 = R.y_chisq;
-            long double mean=0.0L; for (double v: y0) mean += v; mean/=std::max(1,(int)y0.size());
-            std::vector<double> tmp=y0;
+            long double sum=0.0L; for (double c: chisq) sum += c;
+            double mean = (double)(sum / (long double)chisq.size());
+            std::vector<double> tmp = chisq;
             std::nth_element(tmp.begin(), tmp.begin()+tmp.size()/2, tmp.end());
             double med = tmp[tmp.size()/2];
-            double mx = *std::max_element(y0.begin(), y0.end());
+            double mx = *std::max_element(chisq.begin(), chisq.end());
 
             log.log("Total Observed scale h2: ", h2_obs, " (", h2_se, ")");
             log.log("Lambda GC: ", med/0.4549);
-            log.log("Mean Chi^2: ", (double)mean);
+            log.log("Mean Chi^2: ", mean);
             if (include_intercept) log.log("Intercept: ", beta[0], " (", se[0], ")");
             log.log("Max chi^2: ", mx);
         }
 
-        // write a compact summary file with top-line estimates
+        // 10) Write compact summary file (finite-only chi^2 stats)
         {
-            // Recompute quick QC stats from original chi^2 vector R.y_chisq
-            const auto& y_all = R.y_chisq;
-            long double mean_all = 0.0L; for (double v: y_all) mean_all += v;
-            mean_all /= std::max(1,(int)y_all.size());
-            std::vector<double> tmp_all = y_all;
-            std::nth_element(tmp_all.begin(), tmp_all.begin()+tmp_all.size()/2, tmp_all.end());
-            double med_all = tmp_all[tmp_all.size()/2];
-            double mx_all = *std::max_element(y_all.begin(), y_all.end());
+            long double sum=0.0L; for (double c: chisq) sum += c;
+            double mean_all = (double)(sum / (long double)chisq.size());
+            std::vector<double> tmp = chisq;
+            std::nth_element(tmp.begin(), tmp.begin()+tmp.size()/2, tmp.end());
+            double med_all = tmp[tmp.size()/2];
+            double mx_all = *std::max_element(chisq.begin(), chisq.end());
 
-            // Figure out reported intercept value/SE (fixed vs free)
-            const bool include_intercept = std::isnan(args.intercept_h2);
-            double intercept_est = include_intercept ? beta[0] : args.intercept_h2;
-            double intercept_se  = include_intercept ? se[0]   : 0.0;
+            const bool inc_int = std::isnan(args.intercept_h2);
+            double intercept_est = inc_int ? beta[0] : args.intercept_h2;
+            double intercept_se  = inc_int ? se[0]   : 0.0;
 
-            // Derive an M_5_50 total to print (if broadcast, M[0] is the total; else sum)
             long double M_total_print = 0.0L;
             if (!M.empty()) {
                 bool all_same = true;
@@ -683,15 +702,14 @@ int run_ph2(int argc, char** argv) {
             s << "Intercept_SE\t" << intercept_se << "\n";
             s << "h2_observed\t" << h2_obs << "\n";
             s << "h2_observed_SE\t" << h2_se << "\n";
-            s << "Mean_Chi2\t" << (double)mean_all << "\n";
-            s << "Lambda_GC\t" << (med_all/0.4549) << "\n";
-            s << "Max_Chi2\t" << mx_all << "\n";
+            s << "Mean_Chi2\t" << mean_all << "\n";
+            s << "Lambda_GC\t"  << (med_all/0.4549) << "\n";
+            s << "Max_Chi2\t"   << mx_all << "\n";
             s.close();
 
             log.log("Wrote summary to ", args.out, ".summary.txt");
         }
 
-        //finish
         log.log("ph2: completed.");
         return 0;
     } catch (const std::exception& e) {
@@ -699,3 +717,4 @@ int run_ph2(int argc, char** argv) {
         return 1;
     }
 }
+

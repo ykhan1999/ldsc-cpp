@@ -29,19 +29,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install deps (Linux)
+      # Linux toolchain
+      - name: Toolchain (Linux)
         if: startsWith(matrix.os, 'ubuntu')
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build build-essential
-          # Optional: libomp for OpenMP (Ubuntu 22.04)
+          # Optional OpenMP runtime
           sudo apt-get install -y libomp-dev || true
 
-      - name: Install deps (macOS)
+      # macOS: CMake & Ninja are already on the runner; don't reinstall.
+      - name: Toolchain (macOS)
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          cmake --version
+          ninja --version || true
+
+      # Only ensure libomp exists on macOS
+      - name: Install OpenMP runtime (macOS)
         if: startsWith(matrix.os, 'macos')
         run: |
           brew update
-          brew install cmake ninja libomp || true
+          brew list --versions libomp >/dev/null || brew install libomp
+
+      # Windows: ensure Ninja present (usually preinstalled, but safe)
+      - name: Toolchain (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install ninja -y || powershell -Command "Write-Host 'ninja likely present'"
+          ninja --version
 
       - name: Configure
         run: cmake -S . -B build -G Ninja --preset ${{ matrix.configure }}
@@ -49,44 +65,33 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
-      - name: Install zip (Windows)
+      # Package (Windows) — use built-in Compress-Archive (no zip dependency)
+      - name: Package (Windows)
         if: runner.os == 'Windows'
-        run: choco install zip -y
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist,bundle | Out-Null
+          $exe = Test-Path 'build/Release/ldsc.exe' ? 'build/Release/ldsc.exe' : 'build/ldsc.exe'
+          Copy-Item $exe bundle\ldsc.exe
+          foreach ($f in 'LICENSE','AUTHORS','NOTICE','CREDITS') {
+            if (Test-Path $f) { Copy-Item $f bundle\ }
+          }
+          Compress-Archive -Path bundle\* -DestinationPath dist\ldsc_${{ matrix.triplet }}.zip -Force
 
-      - name: Package
+      # Package (*nix)
+      - name: Package (Linux/macOS)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
-          mkdir -p dist
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            exe="build/ldsc.exe"
-            [[ -f "build/Release/ldsc.exe" ]] && exe="build/Release/ldsc.exe"
-            cp "$exe" ldsc.exe
-            zip -j "dist/ldsc_${{ matrix.triplet }}.zip" ldsc.exe
-          else
-            bin="build/ldsc"
-            [[ -f "build/Release/ldsc" ]] && bin="build/Release/ldsc"
-            cp "$bin" ldsc
-            chmod +x ldsc
-            tar czf "dist/ldsc_${{ matrix.triplet }}.tar.gz" ldsc
-          fi
-
-      - name: Package
-        shell: bash
-        run: |
-          mkdir -p dist
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            # handle single/multi-config generator paths
-            exe="build/ldsc.exe"
-            [[ -f "build/Release/ldsc.exe" ]] && exe="build/Release/ldsc.exe"
-            cp "$exe" ldsc.exe
-            zip -j "dist/ldsc_${{ matrix.triplet }}.zip" ldsc.exe
-          else
-            bin="build/ldsc"
-            [[ -f "build/Release/ldsc" ]] && bin="build/Release/ldsc"
-            cp "$bin" ldsc
-            chmod +x ldsc
-            tar czf "dist/ldsc_${{ matrix.triplet }}.tar.gz" ldsc
-          fi
+          set -euxo pipefail
+          mkdir -p dist bundle
+          bin="build/ldsc"; [[ -f "build/Release/ldsc" ]] && bin="build/Release/ldsc"
+          cp "$bin" bundle/ldsc
+          chmod +x bundle/ldsc
+          for f in LICENSE AUTHORS NOTICE CREDITS; do
+            [[ -f "$f" ]] && cp "$f" bundle/ || true
+          done
+          tar czf "dist/ldsc_${{ matrix.triplet }}.tar.gz" -C bundle .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -108,6 +113,7 @@ jobs:
           name: ldsc-macos-arm64
           path: mac_arm
       - name: Combine with lipo
+        shell: bash
         run: |
           set -euxo pipefail
           mkdir -p out
