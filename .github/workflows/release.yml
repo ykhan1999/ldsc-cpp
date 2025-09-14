@@ -9,44 +9,44 @@ permissions:
   contents: write
 
 jobs:
-  # ---- Linux (portable glibc 2.17) ----
+    # ---- Linux (portable glibc 2.17) ----
   build-linux:
-  name: Build (linux-x86_64 glibc2.17)
-  runs-on: ubuntu-22.04
-  steps:
-    - uses: actions/checkout@v4
+    name: Build (linux-x86_64 glibc2.17)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
 
-    - name: Write manylinux build script
-      shell: bash
-      run: |
-        set -euxo pipefail
-        cat > manylinux_build.sh <<'SH'
-        set -euxo pipefail
-        source /opt/rh/devtoolset-10/enable
-        /opt/python/cp311-cp311/bin/python -m pip install --upgrade pip
-        /opt/python/cp311-cp311/bin/pip install cmake ninja
-        export PATH="/opt/python/cp311-cp311/bin:$PATH"
-        cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLDSC_PORTABLE_LINUX=ON
-        cmake --build build --parallel
-        mkdir -p dist bundle
-        cp build/ldsc bundle/ldsc
-        strip bundle/ldsc || true
-        for f in LICENSE AUTHORS NOTICE CREDITS; do [ -f "$f" ] && cp "$f" bundle/ || true; done
-        tar czf dist/ldsc_linux-x86_64_glibc2.17.tar.gz -C bundle .
-        SH
-        chmod +x manylinux_build.sh
+      - name: Write manylinux build script
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cat > manylinux_build.sh <<'SH'
+          set -euxo pipefail
+          source /opt/rh/devtoolset-10/enable
+          /opt/python/cp311-cp311/bin/python -m pip install --upgrade pip
+          /opt/python/cp311-cp311/bin/pip install cmake ninja
+          export PATH="/opt/python/cp311-cp311/bin:$PATH"
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLDSC_PORTABLE_LINUX=ON
+          cmake --build build --parallel
+          mkdir -p dist bundle
+          cp build/ldsc bundle/ldsc
+          strip bundle/ldsc || true
+          for f in LICENSE AUTHORS NOTICE CREDITS; do [ -f "$f" ] && cp "$f" bundle/ || true; done
+          tar czf dist/ldsc_linux-x86_64_glibc2.17.tar.gz -C bundle .
+          SH
+          chmod +x manylinux_build.sh
 
-    - name: Build inside manylinux2014 container
-      shell: bash
-      run: |
-        docker run --rm -v "$PWD":/io -w /io quay.io/pypa/manylinux2014_x86_64 \
-          bash -lc '/io/manylinux_build.sh'
+      - name: Build inside manylinux2014 container
+        shell: bash
+        run: |
+          docker run --rm -v "$PWD":/io -w /io quay.io/pypa/manylinux2014_x86_64 \
+            bash -lc '/io/manylinux_build.sh'
 
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: "ldsc-linux-x86_64-glibc2.17"
-        path: dist/*
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ldsc-linux-x86_64-glibc2.17
+          path: dist/*
 
   # ---- macOS + Windows ----
   build:
