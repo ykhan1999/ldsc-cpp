@@ -15,6 +15,7 @@ It outputs human-readable logs and a *.summary.txt with headline estimates.
 Getting started: Prebuilt binaries
 -------------------------------
 Linux x86_64: https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.3.5/ldsc_linux-x86_64_glibc2.17.tar.gz
+
 MacOS (all architectures): https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.3.5/ldsc_macos-universal.tar.gz
 
 Installation Instructions:
