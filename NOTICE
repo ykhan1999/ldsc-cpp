@@ -1,0 +1,25 @@
+NOTICE
+======
+
+Project: ldsc-cpp
+Copyright (c) 2025 Yousef Khan and contributors
+
+License: GNU General Public License v3.0 only (GPL-3.0-only). See LICENSE.
+
+This project is a reimplementation inspired by the original “LDSC” program:
+  https://github.com/bulik/ldsc
+LDSC is licensed under GPL-3.0 and authored by Brendan K. Bulik-Sullivan and
+colleagues (Alkes Price Lab) and other contributors, © their respective authors.
+
+No affiliation with or endorsement by the original LDSC authors is implied.
+
+Academic use: If you use this software in research, please also cite the
+original LDSC publications that introduced LD Score regression.
+
+Third-party code: Any third-party components included in this repository are
+distributed under their respective licenses; see their file headers and/or the
+`third_party/` directory for details.
+
+Where code in this repository is adapted from other projects, the source and
+license are acknowledged in the corresponding file headers.
+
