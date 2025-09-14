@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cctype>
+#include <cstdint>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -72,15 +73,15 @@ struct Logger {
 struct Args {
     string sumstats;      // --sumstats
     string out;           // --out (prefix)
-    string id_col;        // --rsid
-    string P_col;         // --p-value
+    string id_col;        // --id
+    string P_col;         // --p
     string A1_col;        // --A1
     string A2_col;        // --A2
-    string N_col;         // --N column (optional)
-    string N_cas_col;     // --N_cases
-    string N_con_col;     // --N_cont
-    string stats_col;     // --signed-col
-    string stats_type;    // --signed-type {Zscore, OR, beta, log_odds}
+    string N_col;         // --N_col (optional)
+    string N_cas_col;     // --N_cas_col
+    string N_con_col;     // --N_con_col
+    string stats_col;     // --eff_col
+    string stats_type;    // --eff_type {Zscore, OR, beta, log_odds}
     string info_col;      // --info
     string maf_col;       // --maf
     string merge_alleles; // --merge-alleles (file with SNP A1 A2)
@@ -89,8 +90,8 @@ struct Args {
     bool   no_alleles = false; // --no-alleles
     bool   keep_maf   = false; // --keep-maf
     double N_flag = numeric_limits<double>::quiet_NaN(); // --N
-    double N_cas  = numeric_limits<double>::quiet_NaN(); // --N-cas
-    double N_con  = numeric_limits<double>::quiet_NaN(); // --N-con
+    double N_cas  = numeric_limits<double>::quiet_NaN(); // --N_cas
+    double N_con  = numeric_limits<double>::quiet_NaN(); // --N_con
 };
 
 static Args parse_args(int argc, char** argv) {
@@ -100,8 +101,8 @@ static Args parse_args(int argc, char** argv) {
         string k = argv[i];
         if      (k=="--sumstats") a.sumstats = need(i,k);
         else if (k=="--out")      a.out = need(i,k);
-        else if (k=="--id")     a.id_col = need(i,k);
-        else if (k=="--p")  a.P_col = need(i,k);
+        else if (k=="--id")       a.id_col = need(i,k);
+        else if (k=="--p")        a.P_col = need(i,k);
         else if (k=="--A1")       a.A1_col = need(i,k);
         else if (k=="--A2")       a.A2_col = need(i,k);
         else if (k=="--N_col")    a.N_col = need(i,k);
@@ -136,7 +137,7 @@ static Args parse_args(int argc, char** argv) {
     }
     for (auto& c: a.stats_type) c = tolower(static_cast<unsigned char>(c));
     if (a.stats_type!="zscore" && a.stats_type!="or" && a.stats_type!="beta" && a.stats_type!="log_odds") {
-        cerr<<"--eff-type must be one of: Zscore, OR, beta, log_odds\n"; exit(2);
+        cerr<<"--eff_type must be one of: Zscore, OR, beta, log_odds\n"; exit(2);
     }
     return a;
 }
@@ -155,9 +156,23 @@ static bool keep_alleles(const string& A1, const string& A2){
     if (!is_valid_base(A1[0]) || !is_valid_base(A2[0])) return false;
     return !is_strand_ambiguous(A1[0],A2[0]);
 }
-static bool valid_p(double p){ return (p>0.0)&&(p<=1.0); }
 static bool pass_info(double x, double minv){ if (std::isnan(x)) return true; if (x<0||x>2.0) return false; return x>=minv; }
 static bool pass_maf(double& f, double minv){ if (std::isnan(f)) return true; if (f<0||f>1) return false; f = min(f,1.0-f); return f>minv; }
+
+// ---- P-value sanitization to avoid infinities (p=0) and nonsense (>1) -------
+static inline double sanitize_p(double p) {
+    if (std::isnan(p)) return std::numeric_limits<double>::quiet_NaN();
+    if (p <= 0.0) return 1e-323; // floor to avoid inf z/chi2
+    if (p > 1.0)  return 1.0;    // cap
+    return p;
+}
+struct PClampStats { uint64_t zero_or_neg = 0, over_one = 0; } g_pstats;
+static inline double sanitize_p_counting(double p) {
+    if (std::isnan(p)) return p;
+    if (p <= 0.0) { ++g_pstats.zero_or_neg; return 1e-323; }
+    if (p >  1.0) { ++g_pstats.over_one;   return 1.0; }
+    return p;
+}
 
 // Acklam invnorm for P->Z (Z = Phi^{-1}(1 - p/2))
 static double inv_norm_cdf(double p){
@@ -298,11 +313,14 @@ static vector<Row> parse_and_filter(const Args& a, Logger& log){
     sstat_i = must_idx(a.stats_col);
 
     vector<Row> rows; rows.reserve(1<<20);
-    size_t tot=0, drop_na=0, drop_p=0, drop_info=0, drop_maf=0, drop_alleles=0, drop_merge_notin=0, drop_merge_mismatch=0;
+    size_t total_read=0, kept=0;
+    size_t drop_na=0, drop_p_nonnum=0, drop_info=0, drop_maf=0, drop_alleles=0, drop_merge_notin=0, drop_merge_mismatch=0;
 
     string line;
     while (getline(ifs,line)){
         if (line.empty()) continue;
+        ++total_read;
+
         vector<string> f = split_ws(line);
         if ((int)f.size() <= max({id_i,p_i,A1_i,A2_i,N_i,Nc_i,Nn_i,info_i,maf_i,sstat_i})) { drop_na++; continue; }
 
@@ -313,12 +331,13 @@ static vector<Row> parse_and_filter(const Args& a, Logger& log){
         // If merging alleles: restrict to listed SNPs
         if (!merge.empty() && !merge.count(r.id)) { drop_merge_notin++; continue; }
 
-        // P
+        // P (sanitize instead of dropping out-of-bounds)
         {
             const string& s = f[p_i];
             if (s=="."||s=="NA"){ drop_na++; continue; }
-            char* e=nullptr; r.P = strtod(s.c_str(), &e);
-            if (!e || *e!='\0' || !valid_p(r.P)){ drop_p++; continue; }
+            char* e=nullptr; double pv = strtod(s.c_str(), &e);
+            if (!e || *e!='\0'){ drop_p_nonnum++; continue; } // non-numeric only
+            r.P = sanitize_p_counting(pv);
         }
 
         // SSTAT
@@ -380,27 +399,34 @@ static vector<Row> parse_and_filter(const Args& a, Logger& log){
         }
 
         rows.push_back(std::move(r));
-        if (++tot % 1000000 == 0) cerr << ".";
+        ++kept;
+        if (kept % 1000000 == 0) cerr << ".";
     }
     cerr << " done\n";
 
     // Summary
     {
         ostringstream msg;
-        msg << "Read " << tot << " SNPs from --sumstats file.\n";
-        if (!merge.empty()){
+        msg << "Read " << total_read << " SNPs from --sumstats file.\n";
+        if (!a.merge_alleles.empty()){
             msg << "Removed " << drop_merge_notin << " SNPs not in --merge-alleles.\n";
         }
-        msg << "Removed " << drop_na      << " SNPs with missing values.\n";
-        msg << "Removed " << drop_info    << " SNPs with INFO <= " << a.info_min << ".\n";
-        msg << "Removed " << drop_maf     << " SNPs with MAF <= "  << a.maf_min  << ".\n";
-        msg << "Removed " << drop_p       << " SNPs with out-of-bounds p-values.\n";
-        msg << "Removed " << drop_alleles << " variants that were not SNPs or were strand-ambiguous.\n";
-        if (!merge.empty()){
+        msg << "Removed " << drop_na           << " SNPs with missing values.\n";
+        msg << "Removed " << drop_info         << " SNPs with INFO <= " << a.info_min << ".\n";
+        msg << "Removed " << drop_maf          << " SNPs with MAF <= "  << a.maf_min  << ".\n";
+        msg << "Removed " << drop_p_nonnum     << " SNPs with non-numeric p-values.\n";
+        msg << "Removed " << drop_alleles      << " variants that were not SNPs or were strand-ambiguous.\n";
+        if (!a.merge_alleles.empty()){
             msg << "Removed " << drop_merge_mismatch << " SNPs whose alleles did not match --merge-alleles.\n";
         }
         msg << rows.size() << " SNPs remain.";
         log.log(msg.str());
+
+        // Report p-value sanitization counts (informational)
+        if (g_pstats.zero_or_neg || g_pstats.over_one) {
+            log.log("Sanitized p-values: ", (unsigned long long)g_pstats.zero_or_neg,
+                    " <= 0; ", (unsigned long long)g_pstats.over_one, " > 1");
+        }
     }
 
     // Dedup by RSID
@@ -443,17 +469,17 @@ static void process_and_write(vector<Row>& rows, const Args& a, Logger& log){
 
     // Drop low N: default (90th percentile)/1.5
     vector<double> Ns; Ns.reserve(rows.size());
-    for (auto& r: rows) if (!isnan(r.N)) Ns.push_back(r.N);
+    for (auto& r: rows) if (!std::isnan(r.N)) Ns.push_back(r.N);
     if (!Ns.empty()){
         nth_element(Ns.begin(), Ns.begin()+(Ns.size()*9)/10, Ns.end());
         double n90 = Ns[(Ns.size()*9)/10];
         double nmin = n90/1.5;
         size_t before = rows.size();
-        rows.erase(remove_if(rows.begin(), rows.end(), [&](const Row& r){ return isnan(r.N) || r.N < nmin; }), rows.end());
+        rows.erase(remove_if(rows.begin(), rows.end(), [&](const Row& r){ return std::isnan(r.N) || r.N < nmin; }), rows.end());
         log.log("Removed ", (before-rows.size()), " SNPs with N < ", nmin, " (", rows.size(), " SNPs remain).");
     }
 
-    // Compute Z from P
+    // Compute Z from sanitized P
     for (auto& r: rows) r.Z = p_to_z(r.P);
 
     // Orient Z by signed stat
@@ -484,24 +510,37 @@ static void process_and_write(vector<Row>& rows, const Args& a, Logger& log){
     ofs.close();
     log.log("Writing summary statistics for ", printed, " SNPs to ", ofn, ".");
 
-    // QC metrics
+    // QC metrics (finite-only)
     vector<double> chisq; chisq.reserve(rows.size());
-    for (auto& r: rows) chisq.push_back(r.Z*r.Z);
-    double mean_chi2 = 0.0; for (double c: chisq) mean_chi2 += c; mean_chi2 /= max<size_t>(1,chisq.size());
-    log.log("Mean chi^2 = ", std::round(mean_chi2*1000)/1000.0);
-    if (mean_chi2 < 1.02) log.log("WARNING: mean chi^2 may be too small.");
+    for (auto& r: rows){
+        if (std::isfinite(r.Z)) {
+            double c = r.Z * r.Z;
+            if (std::isfinite(c)) chisq.push_back(c);
+        }
+    }
+
     if (!chisq.empty()){
+        double sum = 0.0; for (double c: chisq) sum += c;
+        double mean_chi2 = sum / chisq.size();
+        log.log("Mean chi^2 = ", std::round(mean_chi2*1000)/1000.0);
+
         vector<double> tmp = chisq;
         nth_element(tmp.begin(), tmp.begin()+tmp.size()/2, tmp.end());
         double med = tmp[tmp.size()/2];
-        double lambda_gc = med / 0.4549;
+        double lambda_gc = med / 0.4549; // median of chi2_1
         ostringstream oss; oss<<fixed<<setprecision(3)<<lambda_gc;
         log.log("Lambda GC = ", oss.str());
+
         double mx = *max_element(chisq.begin(), chisq.end());
         ostringstream oss2; oss2<<fixed<<setprecision(3)<<mx;
         log.log("Max chi^2 = ", oss2.str());
-        size_t gws = count_if(chisq.begin(), chisq.end(), [](double x){ return x>29.0; });
+
+        // p < 5e-8 threshold for 1 df chi-square ≈ 29.716
+        const double GW_CHI2 = 29.716;
+        size_t gws = count_if(chisq.begin(), chisq.end(), [&](double x){ return x > GW_CHI2; });
         log.log(to_string(gws), " Genome-wide significant SNPs (some may have been removed by filtering).");
+    } else {
+        log.log("No finite chi^2 values to summarize.");
     }
 }
 
