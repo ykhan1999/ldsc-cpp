@@ -37,7 +37,7 @@ xattr -d com.apple.quarantine ldsc
 ./ldsc --version
 ```
 
-Getting started: Building from Source
+Building from Source
 -----
 Prerequisites: CMake >= 3.20, a C++17 compiler, and (recommended) Ninja.
 
