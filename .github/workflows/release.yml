@@ -49,6 +49,27 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
+      - name: Install zip (Windows)
+        if: runner.os == 'Windows'
+        run: choco install zip -y
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p dist
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            exe="build/ldsc.exe"
+            [[ -f "build/Release/ldsc.exe" ]] && exe="build/Release/ldsc.exe"
+            cp "$exe" ldsc.exe
+            zip -j "dist/ldsc_${{ matrix.triplet }}.zip" ldsc.exe
+          else
+            bin="build/ldsc"
+            [[ -f "build/Release/ldsc" ]] && bin="build/Release/ldsc"
+            cp "$bin" ldsc
+            chmod +x ldsc
+            tar czf "dist/ldsc_${{ matrix.triplet }}.tar.gz" ldsc
+          fi
+
       - name: Package
         shell: bash
         run: |
