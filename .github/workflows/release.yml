@@ -1,0 +1,122 @@
+name: Build and release binaries
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (${{ matrix.triplet }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            triplet: linux-x86_64
+            configure: release
+          - os: macos-13
+            triplet: macos-x86_64
+            configure: macos-release
+          - os: macos-14
+            triplet: macos-arm64
+            configure: macos-release
+          - os: windows-latest
+            triplet: windows-x86_64
+            configure: windows-release-staticcrt
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install deps (Linux)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build build-essential
+          # Optional: libomp for OpenMP (Ubuntu 22.04)
+          sudo apt-get install -y libomp-dev || true
+
+      - name: Install deps (macOS)
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          brew update
+          brew install cmake ninja libomp || true
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja --preset ${{ matrix.configure }}
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p dist
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            # handle single/multi-config generator paths
+            exe="build/ldsc.exe"
+            [[ -f "build/Release/ldsc.exe" ]] && exe="build/Release/ldsc.exe"
+            cp "$exe" ldsc.exe
+            zip -j "dist/ldsc_${{ matrix.triplet }}.zip" ldsc.exe
+          else
+            bin="build/ldsc"
+            [[ -f "build/Release/ldsc" ]] && bin="build/Release/ldsc"
+            cp "$bin" ldsc
+            chmod +x ldsc
+            tar czf "dist/ldsc_${{ matrix.triplet }}.tar.gz" ldsc
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ldsc-${{ matrix.triplet }}
+          path: dist/*
+
+  macos-universal:
+    name: Create macOS universal binary
+    needs: build
+    runs-on: macos-14
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ldsc-macos-x86_64
+          path: mac_x86
+      - uses: actions/download-artifact@v4
+        with:
+          name: ldsc-macos-arm64
+          path: mac_arm
+      - name: Combine with lipo
+        run: |
+          set -euxo pipefail
+          mkdir -p out
+          tar xzf mac_x86/*.tar.gz
+          mv ldsc ldsc_x86_64
+          tar xzf mac_arm/*.tar.gz
+          mv ldsc ldsc_arm64
+          lipo -create -output ldsc ldsc_x86_64 ldsc_arm64
+          tar czf out/ldsc_macos-universal.tar.gz ldsc
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ldsc-macos-universal
+          path: out/*
+
+  release:
+    name: Publish GitHub Release
+    needs: [build, macos-universal]
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Gather files
+        run: |
+          mkdir out
+          find artifacts -type f -name '*.zip' -or -name '*.tar.gz' -print0 | xargs -0 -I{} cp {} out/
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/*
+          generate_release_notes: true
+
