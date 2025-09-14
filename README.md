@@ -14,8 +14,28 @@ It outputs human-readable logs and a *.summary.txt with headline estimates.
 
 Getting started: Prebuilt binaries
 -------------------------------
-Prebuilt archives for Linux, macOS (Intel/Apple), and Windows will be posted on the project’s
-Releases page in the future.
+Linux x86_64: https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.3.0/ldsc_linux-x86_64.tar.gz
+Windows x86_64: https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.3.0/ldsc_windows-x86_64.zip
+MacOS (all architectures): https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.3.0/ldsc_macos-universal.tar.gz
+
+Installation Instructions:
+
+Linux:
+```bash
+tar xzf ldsc_linux-x86_64.tar.gz
+chmod +x ldsc
+./ldsc --version
+# optional sanity
+ldd ./ldsc
+```
+
+MacOS:
+```bash
+tar xzf ldsc_macos-universal.tar.gz
+chmod +x ldsc
+xattr -d com.apple.quarantine ldsc
+./ldsc --version
+```
 
 Getting started: Building from Source
 -----
