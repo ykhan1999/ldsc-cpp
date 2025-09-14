@@ -1,0 +1,12 @@
+ldsc-cpp — fast LD Score Regression tools (CLI)
+Primary author and maintainer: Yousef Khan
+Electronic mail: yousefkhan125@gmail.com
+Paper mail: 6304 Holland Meadow Ln, Gaithersburg, MD 20882
+Project page: https://github.com/ykhan1999/ldsc-cpp
+
+Acknowledgments:
+  This project is inspired by and pays respect to the original LDSC (ldsc)
+  work by Bulik-Sullivan et al. (Price Lab) and collaborators. Their
+  contributions established the methods that ldsc-cpp aims to reimplement
+  in a high-performance C++ CLI.
+

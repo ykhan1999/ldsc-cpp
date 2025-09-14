@@ -23,7 +23,6 @@ if(APPLE)
   set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "macOS deployment target")
   # Ensure runtime search paths work well for a standalone binary
   set(CMAKE_MACOSX_RPATH ON)
-  # Make executables look in @executable_path/../lib first (harmless if no libs)
   set(CMAKE_INSTALL_RPATH "@executable_path/../lib")
   set(CMAKE_BUILD_WITH_INSTALL_RPATH OFF)
 endif()
@@ -40,7 +39,6 @@ endif()
 
 # Linux portability: prefer static libstdc++/libgcc for wider distro coverage
 if(UNIX AND NOT APPLE AND LDSC_PORTABLE_LINUX)
-  # Only applies to GCC/Clang that understand these flags
   add_link_options(-static-libstdc++ -static-libgcc)
 endif()
 
@@ -61,6 +59,15 @@ add_executable(ldsc
 
 target_include_directories(ldsc PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+# Project metadata exposed to the binary (for --version / banner)
+target_compile_definitions(ldsc PRIVATE
+  PROJECT_NAME_STR="ldsc-cpp"
+  PROJECT_VERSION_STR="${PROJECT_VERSION}"
+  PROJECT_LICENSE_STR="GPL-3.0-or-later"
+  PROJECT_URL_STR="https://github.com/ykhan1999/ldsc-cpp"
+  PROJECT_AUTHOR_STR="Yousef Khan"
+)
+
 # OpenMP (optional; resilient on macOS/Homebrew)
 if (LDSC_ENABLE_OPENMP)
   find_package(OpenMP)
@@ -68,7 +75,6 @@ if (LDSC_ENABLE_OPENMP)
     target_link_libraries(ldsc PRIVATE OpenMP::OpenMP_CXX)
     target_compile_definitions(ldsc PRIVATE LDSC_HAS_OPENMP=1)
   elseif(APPLE)
-    # Fallback for some macOS setups where FindOpenMP misses libomp but it's installed
     find_library(OMP_LIB omp HINTS /opt/homebrew/lib /usr/local/lib)
     if(OMP_LIB)
       target_link_libraries(ldsc PRIVATE ${OMP_LIB})

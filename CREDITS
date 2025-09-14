@@ -1,0 +1,11 @@
+Credits / Acknowledgments
+
+Foundational method & original implementation:
+  LDSC (ldsc) — Bulik-Sullivan et al. (Price Lab) and collaborators.
+  We acknowledge their scientific and software contributions that
+  established the LD Score Regression framework.
+
+ldsc-cpp is a separate project maintained by:
+  Yousef Khan  <yousefkhan125@gmail.com>
+  https://github.com/ykhan1999/ldsc-cpp
+

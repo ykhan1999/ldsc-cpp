@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it and the original LDSC work."
+title: "ldsc-cpp: a C++ command-line reimplementation of LD Score Regression"
+authors:
+  - family-names: Khan
+    given-names: Yousef
+    email: yousefkhan125@gmail.com
+repository-code: "https://github.com/ykhan1999/ldsc-cpp"
+license: GPL-3.0-or-later
+keywords: [LD Score Regression, LDSC, statistical genetics, C++]
+preferred-citation:
+  type: software
+  authors:
+    - family-names: Khan
+      given-names: Yousef
+  title: "ldsc-cpp"
+  year: 2025
+notes: |
+  Please also cite the original LDSC publications by Bulik-Sullivan et al.
+
