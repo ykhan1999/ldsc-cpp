@@ -36,4 +36,4 @@ tmp/
 # OS/editor
 .DS_Store
 .vscode/launch.local.json
-.vscode/
+/.vscode/
