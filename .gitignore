@@ -25,7 +25,7 @@ compile_commands.json
 # Project-specific binaries
 ldsc
 ldsc.d
-ldsc.dSYM/
+/ldsc.dSYM/
 
 # Data & scratch
 *.sumstats
@@ -35,5 +35,4 @@ tmp/
 
 # OS/editor
 .DS_Store
-.vscode/launch.local.json
 /.vscode/
