@@ -1,0 +1,23 @@
+{
+  "version": "0.4.0",
+  "configurations": [
+    {
+      "name": "ldsc (ph2 skeleton)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/ldsc",
+      "args": [
+        "ph2",
+        "--out", "meta_EUR_h2",
+        "--h2", "meta_EUR.sumstats",
+        "--ref-ld-chr", "/Users/yousefk/Documents/ldsc_cpp/eur_w_ld_chr/",
+        "--w-ld-chr", "/Users/yousefk/Documents/ldsc_cpp/eur_w_ld_chr/",
+        "--n-blocks", "200"
+      ],
+      "cwd": "${workspaceFolder}",
+      "MIMode": "lldb",
+      "preLaunchTask": "Build (Debug)"
+    }
+  ]
+}
+

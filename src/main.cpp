@@ -22,7 +22,7 @@
 #  define PROJECT_NAME_STR "ldsc-cpp"
 #endif
 #ifndef PROJECT_VERSION_STR
-#  define PROJECT_VERSION_STR "0.0.0"
+#  define PROJECT_VERSION_STR "0.4.0"
 #endif
 #ifndef PROJECT_LICENSE_STR
 #  define PROJECT_LICENSE_STR "GPL-3.0-or-later"
