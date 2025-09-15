@@ -1,11 +1,11 @@
 {
-  "version": "0.4.0",
+  "version": "0.2.0",
   "configurations": [
     {
-      "name": "ldsc (ph2 skeleton)",
+      "name": "Launch ldsc (CMake Dev)",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/ldsc",
+      "program": "${command:cmake.launchTargetPath}",
       "args": [
         "ph2",
         "--out", "meta_EUR_h2",
@@ -16,7 +16,9 @@
       ],
       "cwd": "${workspaceFolder}",
       "MIMode": "lldb",
-      "preLaunchTask": "Build (Debug)"
+      "stopAtEntry": false,
+      "preLaunchTask": "Build (Dev)",
+      "externalConsole": false
     }
   ]
 }

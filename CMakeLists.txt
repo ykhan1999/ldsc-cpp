@@ -5,6 +5,7 @@ project(ldsc_cpp LANGUAGES CXX VERSION 0.4.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Prefer Release if unspecified
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -16,6 +17,12 @@ option(LDSC_ENABLE_OPENMP "Enable OpenMP parallelism" ON)
 option(LDSC_ENABLE_IPO     "Enable LTO/IPO if supported" ON)
 option(LDSC_PORTABLE_LINUX "Link libstdc++/libgcc statically on Linux (more portable)" ON)
 option(LDSC_MSVC_STATIC_CRT "Static MSVC runtime on Windows (/MT)" OFF)
+
+# For debugging
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT MSVC)
+  target_compile_options(ldsc PRIVATE -fsanitize=address -fno-omit-frame-pointer)
+  target_link_options(ldsc PRIVATE -fsanitize=address)
+endif()
 
 # macOS portability: set a modern, broadly compatible target
 if(APPLE)
@@ -57,6 +64,7 @@ add_executable(ldsc
   src/logger.cpp
 )
 
+# Project metadata exposed to the binary (for --version / banner)
 target_compile_definitions(ldsc PRIVATE
   PROJECT_NAME_STR="ldsc-cpp"
   PROJECT_VERSION_STR="${PROJECT_VERSION}"
@@ -66,15 +74,6 @@ target_compile_definitions(ldsc PRIVATE
 )
 
 target_include_directories(ldsc PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-
-# Project metadata exposed to the binary (for --version / banner)
-target_compile_definitions(ldsc PRIVATE
-  PROJECT_NAME_STR="ldsc-cpp"
-  PROJECT_VERSION_STR="${PROJECT_VERSION}"
-  PROJECT_LICENSE_STR="GPL-3.0-or-later"
-  PROJECT_URL_STR="https://github.com/ykhan1999/ldsc-cpp"
-  PROJECT_AUTHOR_STR="Yousef Khan"
-)
 
 # OpenMP (optional; resilient on macOS/Homebrew)
 if (LDSC_ENABLE_OPENMP)

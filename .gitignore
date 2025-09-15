@@ -1,13 +1,38 @@
+# CMake + build outputs
 /build/
-/.cache/
-/.cmake/
+/cmake-build-*/
 CMakeFiles/
-debug/
-ldsc
-ldsc.d
 CMakeCache.txt
 compile_commands.json
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Debug symbols & deps
+*.d
+*.dSYM/
+*.pdb
+
+# Local caches/logs
+.cache/
+.cmake/
 *.log
+
+# Project-specific binaries
+ldsc
+ldsc.d
+
+# Data & scratch
 *.sumstats
 *.summary.txt
+local/
+tmp/
+
+# OS/editor
+.DS_Store
+.vscode/launch.local.json
 

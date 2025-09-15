@@ -7,37 +7,11 @@
       "cStandard": "c17",
       "cppStandard": "c++17",
       "intelliSenseMode": "macos-clang-x64",
-      "includePath": [
-        "${workspaceFolder}/include",
-        "${workspaceFolder}/**"
-      ],
-      "browse": {
-        "path": [
-          "${workspaceFolder}/include",
-          "${workspaceFolder}"
-        ],
-        "limitSymbolsToIncludedHeaders": true
-      },
-      "defines": []
-    },
-    {
-      "name": "clang++ on Linux",
-      "compilerPath": "/usr/bin/clang++",
-      "cStandard": "c17",
-      "cppStandard": "c++17",
-      "intelliSenseMode": "linux-clang-x64",
-      "includePath": [
-        "${workspaceFolder}/include",
-        "${workspaceFolder}/**"
-      ],
-      "browse": {
-        "path": [
-          "${workspaceFolder}/include",
-          "${workspaceFolder}"
-        ],
-        "limitSymbolsToIncludedHeaders": true
-      },
+      "compileCommands": "${workspaceFolder}/build/dev/compile_commands.json",
+      "includePath": ["${workspaceFolder}/include"],
+      "browse": { "path": ["${workspaceFolder}/include", "${workspaceFolder}"], "limitSymbolsToIncludedHeaders": true },
       "defines": []
     }
   ]
 }
+
