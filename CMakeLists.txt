@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(ldsc_cpp LANGUAGES CXX VERSION 0.4.0)
+project(ldsc_cpp LANGUAGES CXX VERSION 0.5.0)
 
 # ---- Language/flags ---------------------------------------------------------
 set(CMAKE_CXX_STANDARD 17)
@@ -61,6 +61,7 @@ add_executable(ldsc
   src/main.cpp
   src/munge.cpp
   src/ph2.cpp
+  src/ldsc.cpp
   src/logger.cpp
 )
 

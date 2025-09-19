@@ -14,6 +14,7 @@
 #include "subcommand.hpp"
 #include "munge.hpp"
 #include "ph2.hpp"
+#include "ldsc.hpp"
 #include <iostream>
 #include <string>
 
@@ -59,6 +60,7 @@ static int usage() {
     "Usage:\n"
     "  ldsc munge [munge-args...]\n"
     "  ldsc ph2   [partitioned-h2-args...]\n"
+    "  ldsc ldsc  [ldsc-args...]\n"
     "\n"
     "Global options:\n"
     "  --version     Show version (with license and LDSC credits)\n"
@@ -120,6 +122,9 @@ int main(int argc, char** argv) {
   } else if (cmd == "ph2") {
     auto sub = shift_argv(argc, argv, 2);
     return run_ph2(static_cast<int>(sub.size()), sub.data());
+  } else if (cmd == "ldsc") {
+    auto sub = shift_argv(argc, argv, 2);
+    return run_ldsc(static_cast<int>(sub.size()),sub.data());
   } else {
     std::cerr << "Unknown subcommand or option: " << cmd << "\n";
     return usage();
