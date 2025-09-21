@@ -213,6 +213,7 @@ struct Row {
     double FRQ=numeric_limits<double>::quiet_NaN();
     double SSTAT=numeric_limits<double>::quiet_NaN(); // signed stat as provided
     double Z=numeric_limits<double>::quiet_NaN();     // output
+    int    z_sign = 1;                                // +1 normally; -1 if we swapped to match --merge-alleles
 };
 
 // ---------- Merge-alleles support ----------
@@ -314,7 +315,9 @@ static vector<Row> parse_and_filter(const Args& a, Logger& log){
 
     vector<Row> rows; rows.reserve(1<<20);
     size_t total_read=0, kept=0;
-    size_t drop_na=0, drop_p_nonnum=0, drop_info=0, drop_maf=0, drop_alleles=0, drop_merge_notin=0, drop_merge_mismatch=0;
+    size_t drop_na=0, drop_p_nonnum=0, drop_info=0, drop_maf=0, drop_alleles=0,
+        drop_merge_notin=0, drop_merge_mismatch=0,
+        kept_merge_swap=0;
 
     string line;
     while (getline(ifs,line)){
@@ -363,6 +366,20 @@ static vector<Row> parse_and_filter(const Args& a, Logger& log){
                 if (it!=merge.end()){
                     char R1 = it->second.first, R2 = it->second.second;
                     if (!alleles_match(r.A1[0], r.A2[0], R1, R2)){
+                        drop_merge_mismatch++;
+                        continue;
+                    }
+                    // Strict policy:
+                    // - exact match: keep
+                    // - reversed: swap alleles and mark Z to flip later
+                    // - anything else (incl. strand complements): drop
+                    if (r.A1[0]==R1 && r.A2[0]==R2) {
+                        // keep
+                    } else if (r.A1[0]==R2 && r.A2[0]==R1) {
+                        std::swap(r.A1, r.A2);
+                        r.z_sign = -1;
+                        kept_merge_swap++;
+                    } else {
                         drop_merge_mismatch++;
                         continue;
                     }
@@ -418,6 +435,7 @@ static vector<Row> parse_and_filter(const Args& a, Logger& log){
         msg << "Removed " << drop_alleles      << " variants that were not SNPs or were strand-ambiguous.\n";
         if (!a.merge_alleles.empty()){
             msg << "Removed " << drop_merge_mismatch << " SNPs whose alleles did not match --merge-alleles.\n";
+            msg << "Flipped alleles for " << kept_merge_swap << " SNPs to match --merge-alleles (Z sign reversed).\n";
         }
         msg << rows.size() << " SNPs remain.";
         log.log(msg.str());
@@ -487,6 +505,10 @@ static void process_and_write(vector<Row>& rows, const Args& a, Logger& log){
     for (auto& r: rows){
         if (!std::isnan(r.SSTAT) && !std::isnan(r.Z)){
             if (r.SSTAT < null_signed) r.Z = -r.Z;
+        }
+        // If we swapped A1/A2 earlier to align with the reference, reverse Z sign.
+        if (r.z_sign < 0 && !std::isnan(r.Z)) {
+            r.Z = -r.Z;
         }
     }
 
