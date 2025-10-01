@@ -69,6 +69,38 @@ struct Logger {
     ofstream ofs;
 };
 
+// -------- Output syntax if help is called ----
+#ifndef MUNGE_HELP
+#   define MUNGE_HELP \
+    "This is the main subcommand used to prepare sumstats for ldsc computations:\n" \
+    "Usage: ./ldsc munge --[flag] [string]\n" \
+    "   REQUIRED FLAGS\n" \
+    "       --sumstats sumstats.txt (NOTE .gz file not supported)\n" \
+    "       --id [SNP IDs column name]\n" \
+    "       --p [p-value column name]\n" \
+    "       --A1 [A1 column name]\n" \
+    "       --A2 [A2 column name]\n" \
+    "       --A1 [A1 column name]\n" \
+    "       --eff-col [column with effect values]\n" \
+    "       --eff-type [type of effect value; options: beta, OR, Zscore, log_odds]\n" \
+    "       --out [output-prefix]\n" \
+    "       Either of:\n" \
+    "           --merge-alleles snplist.txt (known good snplist with cols SNP A1 A2)\n" \
+    "           --no-alleles true\n" \
+    "       Either of:\n" \
+    "           --N-col [N column name]\n" \
+    "           --N [raw N value]\n" \
+    "   OPTIONAL FLAGS\n" \
+    "       --maf [MAF column name] (filter by MAF specified with --maf-min)\n" \
+    "       --maf-min [min MAF value]\n" \
+    "       --info [INFO column name] (filter by INFO specified with --info-min)\n" \
+    "       --info-min [min INFO value]\n" \
+    "       --N-cas-col [column with N cases]\n" \
+    "       --N-con-col [column with N controls]\n" \
+    "       --N-cas [raw N cases value]\n" \
+    "       --N-con [raw N controls value]\n"
+#endif
+
 // ---------- CLI ----------
 struct Args {
     string sumstats;      // --sumstats
@@ -77,11 +109,11 @@ struct Args {
     string P_col;         // --p
     string A1_col;        // --A1
     string A2_col;        // --A2
-    string N_col;         // --N_col (optional)
-    string N_cas_col;     // --N_cas_col
-    string N_con_col;     // --N_con_col
-    string stats_col;     // --eff_col
-    string stats_type;    // --eff_type {Zscore, OR, beta, log_odds}
+    string N_col;         // --N-col (optional)
+    string N_cas_col;     // --N-cas-col
+    string N_con_col;     // --N-con-col
+    string stats_col;     // --eff-col
+    string stats_type;    // --eff-type {Zscore, OR, beta, log_odds}
     string info_col;      // --info
     string maf_col;       // --maf
     string merge_alleles; // --merge-alleles (file with SNP A1 A2)
@@ -90,11 +122,15 @@ struct Args {
     bool   no_alleles = false; // --no-alleles
     bool   keep_maf   = false; // --keep-maf
     double N_flag = numeric_limits<double>::quiet_NaN(); // --N
-    double N_cas  = numeric_limits<double>::quiet_NaN(); // --N_cas
-    double N_con  = numeric_limits<double>::quiet_NaN(); // --N_con
+    double N_cas  = numeric_limits<double>::quiet_NaN(); // --N-cas
+    double N_con  = numeric_limits<double>::quiet_NaN(); // --N-con
 };
 
 static Args parse_args(int argc, char** argv) {
+    if (argc <=1 ){
+        std::cout << MUNGE_HELP;
+        std::exit(2);
+    }
     Args a;
     auto need = [&](int& i, const string& k){ if (i+1>=argc) { cerr<<"Missing value for "<<k<<"\n"; exit(2);} return string(argv[++i]); };
     for (int i=0;i<argc;i++){
@@ -105,11 +141,11 @@ static Args parse_args(int argc, char** argv) {
         else if (k=="--p")        a.P_col = need(i,k);
         else if (k=="--A1")       a.A1_col = need(i,k);
         else if (k=="--A2")       a.A2_col = need(i,k);
-        else if (k=="--N_col")    a.N_col = need(i,k);
-        else if (k=="--N_cas_col")  a.N_cas_col = need(i,k);
-        else if (k=="--N_con_col")   a.N_con_col = need(i,k);
-        else if (k=="--eff_col")  a.stats_col  = need(i,k);
-        else if (k=="--eff_type") a.stats_type = need(i,k);
+        else if (k=="--N-col")    a.N_col = need(i,k);
+        else if (k=="--N-cas-col")  a.N_cas_col = need(i,k);
+        else if (k=="--N-con-col")   a.N_con_col = need(i,k);
+        else if (k=="--eff-col")  a.stats_col  = need(i,k);
+        else if (k=="--eff-type") a.stats_type = need(i,k);
         else if (k=="--info")     a.info_col = need(i,k);
         else if (k=="--maf")      a.maf_col  = need(i,k);
         else if (k=="--merge-alleles") a.merge_alleles = need(i,k);
@@ -118,9 +154,16 @@ static Args parse_args(int argc, char** argv) {
         else if (k=="--no-alleles") a.no_alleles = true;
         else if (k=="--keep-maf")   a.keep_maf   = true;
         else if (k=="--N")       a.N_flag = stod(need(i,k));
-        else if (k=="--N_cas")   a.N_cas  = stod(need(i,k));
-        else if (k=="--N_con")   a.N_con  = stod(need(i,k));
-        else { cerr<<"Unknown arg: "<<k<<"\n"; exit(2); }
+        else if (k=="--N-cas")   a.N_cas  = stod(need(i,k));
+        else if (k=="--N-con")   a.N_con  = stod(need(i,k));
+        else if (k=="--help") {
+            std::cout << MUNGE_HELP;
+            std::exit(2);
+        }
+        else {
+            std::cerr<<"Unknown flag in munge: "<<k<<"\n"<<MUNGE_HELP;
+            std::exit(2);
+        }
     }
     // required
     if (a.sumstats.empty() || a.out.empty() || a.id_col.empty() || a.P_col.empty()) {
@@ -134,6 +177,9 @@ static Args parse_args(int argc, char** argv) {
     }
     if (a.stats_col.empty() || a.stats_type.empty()) {
         cerr<<"Provide --eff_col and --eff_type {Zscore, OR, beta, log_odds}\n"; exit(2);
+    }
+    if (std::isnan(a.N_flag) && a.N_col.empty()) {
+        cerr<<"Provide one of either --N [total N] or --N-col [column with variant-level N]\n"; exit(2);
     }
     for (auto& c: a.stats_type) c = tolower(static_cast<unsigned char>(c));
     if (a.stats_type!="zscore" && a.stats_type!="or" && a.stats_type!="beta" && a.stats_type!="log_odds") {

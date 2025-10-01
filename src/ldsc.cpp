@@ -23,6 +23,32 @@
 
 int run_ldsc(int argc, char** argv);
 
+// -------- Output syntax if help is called ----
+#ifndef LDSC_HELP
+#   define LDSC_HELP \
+    "This is the main subcommand used for computing genetic correlation and SNP heritability for munged sumstats:\n" \
+    "Usage: ./ldsc ldsc --[flag] [string]\n" \
+    "   REQUIRED FLAGS\n" \
+    "       Either of:\n" \
+    "           --rg sumstats1.sumstats,sumstats2.sumstats\n" \
+    "           --h2 sumstats1.sumstats\n" \
+    "       Either of:\n" \
+    "           --ref-ld-chr LD_score_dir (Directory of chromosome-split files containing formatted LD scores)\n" \
+    "           --ref-ld LD_score_flat_file.txt (Path to single file containing formatted LD scores for all chromosomes)\n" \
+    "       Either of:\n" \
+    "           --w-ld-chr weighted_LD_score_dir (Directory of chromosome-split files containing LD score weights)\n" \
+    "           --w-ld weighted_LD_score_flat_file.txt(Path to single file containing  LD scores weights for all chromosomes)\n" \
+    "       AND:\n" \
+    "           --out outfile\n" \
+    "   OPTIONAL FLAGS\n" \
+    "       --M mfile.txt (file specifying number of SNPs in corresponding annotation category with MAF>5%, automatically processed if using --ref-ld-chr and --w-ld-chr)\n" \
+    "       --n-blocks N (default 200; N block jackknife over adjacent SNPs to estimate SE)\n" \
+    "       --irwls_iter Z (default 2; Z iterations to repeat IRWLS algorithm before converging)\n" \
+    "       --two-step [true/false] K (default true; default K=30; two-step regression estimate with variants of chisq>K removed in step 1, see wiki for more info\n" \
+    "       --no-intercept [true/false] (default false; fix univariate intercept to 1)\n" \
+    "       --no-intercept12 [true/false] (default false; fix bivariate intercept to 0)\n"
+#endif
+
 // ------------------------- CLI -------------------------
 struct LdscArgs {
     std::string out;        // --out
@@ -37,11 +63,15 @@ struct LdscArgs {
     bool fix_int = false;   // --no-intercept (univariate a=1 fixed)
     bool fix_int12 = false; // --no-intercept12 (bivariate a12=0 fixed)
     int irwls_iter = 2;     // --irwls-iter
-    bool two_step = false;  // --two-step [thresh]
+    bool two_step = true;  // --two-step [thresh]
     double two_step_thresh = 30.0;
 };
 
 static LdscArgs parse_ldsc(int argc, char** argv) {
+    if (argc <=1 ){
+        std::cout << LDSC_HELP;
+        std::exit(2);
+    }
     auto need = [&](int& i, const std::string& k){
         if (i+1 >= argc) { std::cerr<<"Missing value for "<<k<<"\n"; std::exit(2); }
         return std::string(argv[++i]);
@@ -70,7 +100,14 @@ static LdscArgs parse_ldsc(int argc, char** argv) {
                 if (nxt.rfind("--", 0) != 0) { ++i; a.two_step_thresh = std::stod(nxt); }
             }
         }
-        else if (k.rfind("--",0)==0) { std::cerr<<"Unknown flag in ldsc: "<<k<<"\n"; std::exit(2); }
+        else if (k=="--help") {
+            std::cout << LDSC_HELP;
+            std::exit(2);
+        }
+        else {
+            std::cerr<<"Unknown flag in ldsc: "<<k<<"\n"<<LDSC_HELP;
+            std::exit(2);
+        }
     }
 
     if (a.out.empty()) { std::cerr<<"ldsc: --out required\n"; std::exit(2); }

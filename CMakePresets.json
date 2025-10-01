@@ -28,11 +28,11 @@
     },
     {
       "name": "macos-release",
-      "displayName": "macOS Release (11.0 min target)",
+      "displayName": "macOS Release (14.0 min target)",
       "inherits": "release",
       "binaryDir": "build/macos-release",
       "cacheVariables": {
-        "CMAKE_OSX_DEPLOYMENT_TARGET": "11.0"
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "14.0"
       }
     },
     {

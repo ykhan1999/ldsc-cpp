@@ -7,22 +7,21 @@ What is this?
 -------------
 ldsc-cpp provides two subcommands:
 - ldsc munge  — QC/convert GWAS summary statistics to a compact LDSC-style format.
-- ldsc ph2    — partitioned heritability via two-step weighted regression on LD scores
-                (supports per-chromosome or flat LD score files).
+- ldsc ldsc    — options for either rg or partitioned heritability via two-step weighted regression on LD scores
 
 It outputs human-readable logs and a *.summary.txt with headline estimates.
 
 Getting started: Prebuilt binaries
 -------------------------------
-Linux x86_64: https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.3.5/ldsc_linux-x86_64_glibc2.17.tar.gz
+Linux x86_64: https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.6.0/ldsc_linux-x86_64_glibc2.17.tar.gz
 
-MacOS (all architectures): https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.3.5/ldsc_macos-universal.tar.gz
+MacOS (all architectures): https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.6.0/ldsc_macos-universal.tar.gz
 
 Installation Instructions:
 
 Linux:
 ```bash
-wget https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.3.5/ldsc_linux-x86_64_glibc2.17.tar.gz
+wget https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.6.0/ldsc_linux-x86_64_glibc2.17.tar.gz
 tar xzf ldsc_linux-x86_64_glibc2.17.tar.gz
 chmod +x ldsc
 ./ldsc --version
@@ -32,12 +31,15 @@ ldd ./ldsc
 
 MacOS:
 ```bash
-wget https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.3.5/ldsc_macos-universal.tar.gz
+wget https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.6.0/ldsc_macos-universal.tar.gz
 tar xzf ldsc_macos-universal.tar.gz
 chmod +x ldsc
 xattr -d com.apple.quarantine ldsc
 ./ldsc --version
 ```
+Usage
+-------------
+Please see https://github.com/ykhan1999/ldsc-cpp/wiki/Quick-start
 
 Building from Source
 -----
@@ -60,87 +62,10 @@ Release + package:
   cmake --build --preset release --parallel
   cpack --preset release       # creates .zip/.tar.gz in build/release
 
-Quick start with sample GWAS data
-------------------------------------------
-
-1) Prepare reference files (once)
-   - LD score files, which can be flat files or organized per-chromosome. Sample LD score files computed precomputed from 1000 Genomes European ancestry samples:
-		```bash
-		wget https://y3782016.eero.online/eur_w_ld_chr.tar.gz
-		tar -xzvf eur_w_ld_chr.tar.gz
-		```
-   - HapMap3 SNP list
-	   - This is a reference of high-quality SNPs to include for LDSC computations, which will be specific to your LD score panel. A sample file of well-imputed HapMap3 SNPs in European-ancestry-like individuals is below:
-		```bash
-		wget https://y3782016.eero.online/w_hm3.snplist
-		```
-
-
-2) Munge GWAS
-   Using sample data from GWAS Catalog:
-	```bash
-	wget http://ftp.ebi.ac.uk/pub/databases/gwas/summary_statistics/GCST006001-GCST007000/GCST006901/Meta-analysis_Wood_et_al+UKBiobank_2018.txt.gz
-	gzip -d Meta-analysis_Wood_et_al+UKBiobank_2018.txt.gz
-   ./ldsc munge \
-   --sumstats Meta-analysis_Wood_et_al+UKBiobank_2018.txt \
-   --out meta_height \
-   --id SNP \
-   --p P \
-   --A1 Tested_Allele \
-   --A2 Other_Allele \
-   --eff_col BETA \
-   --eff_type beta \
-   --merge-alleles w_hm3.snplist \
-     --N 700000
-	```
-	
-   Result:
-     META_height.sumstats  (columns: SNP N Z A1 A2)
-     META_height.log
-
-   Notes:
-     - If your file has case/control counts or info/maf columns, you can pass:
-		```bash
-		--N_cas_col N_CASES --N_con_col N_CONT
-		--info INFO --maf MAF --keep-maf
-		```
-     - If there’s no per-SNP N, you can provide a constant:
-		```bash
-		--N 700000
-		```
-
-3) Partitioned heritability
-
-
-
-   Per-chromosome reference/weights:
-      ```bash
-		./ldsc ph2 --out \
-		meta_height_h2 \
-		--h2 meta_height.sumstats \
-		--ref-ld-chr eur_w_ld_chr \
-		--w-ld-chr eur_w_ld_chr
-      ```
-
-   Flat single-file mode (if you have merged LD scores):
-      ```bash
-		./ldsc ph2 --out \
-		meta_height_h2 \
-		--h2 meta_height.sumstats \
-		--ref-ld ref.ldscore.tsv \
-		--w-ld  wld.ldscore.tsv
-      ```
-
-   Result:
-     meta_height_h2.summary.txt — top-line estimates (intercept, h2, SEs, QC metrics)
-     meta_height_h2.log          — detailed call/QC/merge info
-
 Notes & differences vs. the original LDSC implementation
 --------------------------------------------------------
-- Two-step weighting with chi^2 cap at 30 for stability.
 - Accepts per-chr directories OR {} patterns (e.g., ld/{}.l2.ldscore).
 - If per-chr *.l2.M_5_50 files exist, their totals are summed and broadcast as M; otherwise M defaults to SNP count.
-- OpenMP is optional; results should be statistically consistent single- vs multi-threaded.
 
 License
 -------
@@ -155,5 +80,3 @@ Final acknowledgement
 ---------------------
 Deep credit and thanks to the creators and maintainers of the original LDSC. This reimplementation stands
 on their shoulders; any mistakes are ours.
-
-

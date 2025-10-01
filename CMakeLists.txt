@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(ldsc_cpp LANGUAGES CXX VERSION 0.5.1)
+project(ldsc_cpp LANGUAGES CXX VERSION 0.6.0)
 
 # ---- Language/flags ---------------------------------------------------------
 set(CMAKE_CXX_STANDARD 17)
@@ -27,7 +27,7 @@ endif()
 # macOS portability: set a modern, broadly compatible target
 if(APPLE)
   # Big Sur is the first common baseline across Intel/Apple Silicon
-  set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "macOS deployment target")
+  set(CMAKE_OSX_DEPLOYMENT_TARGET "14.0" CACHE STRING "macOS deployment target")
   # Ensure runtime search paths work well for a standalone binary
   set(CMAKE_MACOSX_RPATH ON)
   set(CMAKE_INSTALL_RPATH "@executable_path/../lib")
@@ -60,7 +60,6 @@ endif()
 add_executable(ldsc
   src/main.cpp
   src/munge.cpp
-  src/ph2.cpp
   src/ldsc.cpp
   src/logger.cpp
 )

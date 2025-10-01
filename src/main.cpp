@@ -13,7 +13,6 @@
 
 #include "subcommand.hpp"
 #include "munge.hpp"
-#include "ph2.hpp"
 #include "ldsc.hpp"
 #include <iostream>
 #include <string>
@@ -23,7 +22,7 @@
 #  define PROJECT_NAME_STR "ldsc-cpp"
 #endif
 #ifndef PROJECT_VERSION_STR
-#  define PROJECT_VERSION_STR "0.4.0"
+#  define PROJECT_VERSION_STR "0.6.0"
 #endif
 #ifndef PROJECT_LICENSE_STR
 #  define PROJECT_LICENSE_STR "GPL-3.0-or-later"
@@ -59,14 +58,15 @@ static int usage() {
   std::cerr <<
     "Usage:\n"
     "  ldsc munge [munge-args...]\n"
-    "  ldsc ph2   [partitioned-h2-args...]\n"
     "  ldsc ldsc  [ldsc-args...]\n"
+    "Tip: Run each subcommand without arguments for help\n"
     "\n"
     "Global options:\n"
     "  --version     Show version (with license and LDSC credits)\n"
     "  --license     Show GPL conditions\n"
     "  --credits     Show method/project acknowledgments (LDSC)\n"
-    "  --warranty    Show warranty disclaimer\n";
+    "  --warranty    Show warranty disclaimer\n"
+    "  --help        Prints this page\n";
   return 2;
 }
 
@@ -79,7 +79,8 @@ static void interactive_banner() {
        "This program comes with ABSOLUTELY NO WARRANTY; for details type `show w`.\n"
        "This is free software; you may redistribute it under certain conditions;\n"
        "type `show c` for details. Type `show credits` for acknowledgments.\n\n"
-       "Type `quit` to exit.\n";
+       "Type `quit` to exit.\n\n"
+       "USAGE: ./ldsc --help for commands\n";
 
   std::string line;
   while (true) {
@@ -96,8 +97,7 @@ static void interactive_banner() {
 int main(int argc, char** argv) {
   // No args → interactive banner (GNU guidance for interactive mode)
   if (argc < 2) {
-    interactive_banner();
-    return 0;
+    return usage();
   }
 
   std::string cmd = argv[1];
@@ -114,14 +114,12 @@ int main(int argc, char** argv) {
   if (cmd == "--license")  { std::cout << kConditions; return 0; }
   if (cmd == "--credits")  { std::cout << kCredits;    return 0; }
   if (cmd == "--warranty") { std::cout << kWarranty;   return 0; }
+  if (cmd == "--help")     { return usage(); }
 
   // Subcommands
   if (cmd == "munge") {
     auto sub = shift_argv(argc, argv, 2);
     return run_munge(static_cast<int>(sub.size()), sub.data());
-  } else if (cmd == "ph2") {
-    auto sub = shift_argv(argc, argv, 2);
-    return run_ph2(static_cast<int>(sub.size()), sub.data());
   } else if (cmd == "ldsc") {
     auto sub = shift_argv(argc, argv, 2);
     return run_ldsc(static_cast<int>(sub.size()),sub.data());
