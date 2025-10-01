@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-    # ---- Linux (portable glibc 2.17) ----
+  # ---- Linux (portable glibc 2.17) ----
   build-linux:
     name: Build (linux-x86_64 glibc2.17)
     runs-on: ubuntu-22.04
@@ -58,11 +58,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-13
-            triplet: macos-x86_64
-            configure: macos-release
           - os: macos-14
             triplet: macos-arm64
+            configure: macos-release
+          - os: macos-13
+            triplet: macos-x86_64
             configure: macos-release
           - os: windows-latest
             triplet: windows-x86_64
@@ -76,11 +76,25 @@ jobs:
           cmake --version
           ninja --version || true
 
-      - name: Install OpenMP runtime (macOS)
+      - name: Install OpenMP runtime (macOS, bottle-only, no auto-update)
         if: startsWith(matrix.os, 'macos')
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+          HOMEBREW_NO_ANALYTICS: "1"
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "1"
         run: |
-          brew update
-          brew list --versions libomp >/dev/null || brew install libomp
+          set -euxo pipefail
+          # Ensure brew exists on path and is sane
+          command -v brew
+          # Install libomp from bottle to avoid source builds that can drag in openssl, lit, etc.
+          brew list --versions libomp >/dev/null || brew install libomp --force-bottle || brew reinstall libomp --force-bottle
+          # If a previous run dirtied openssl@3 postinstall, don't fail the build:
+          brew postinstall openssl@3 || true
+          # Export proper flags for this job (prefix differs on Intel vs Apple Silicon)
+          prefix="$(brew --prefix libomp)"
+          echo "LDFLAGS=-L${prefix}/lib" >> "$GITHUB_ENV"
+          echo "CPPFLAGS=-I${prefix}/include" >> "$GITHUB_ENV"
 
       - name: Toolchain (Windows)
         if: runner.os == 'Windows'
@@ -174,4 +188,3 @@ jobs:
         with:
           files: out/*
           generate_release_notes: true
-

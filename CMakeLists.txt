@@ -27,7 +27,7 @@ endif()
 # macOS portability: set a modern, broadly compatible target
 if(APPLE)
   # Big Sur is the first common baseline across Intel/Apple Silicon
-  set(CMAKE_OSX_DEPLOYMENT_TARGET "14.0" CACHE STRING "macOS deployment target")
+  set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "macOS deployment target")
   # Ensure runtime search paths work well for a standalone binary
   set(CMAKE_MACOSX_RPATH ON)
   set(CMAKE_INSTALL_RPATH "@executable_path/../lib")
