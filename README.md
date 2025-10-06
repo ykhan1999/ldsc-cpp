@@ -11,6 +11,11 @@ ldsc-cpp provides two subcommands:
 
 It outputs human-readable logs and a *.summary.txt with headline estimates.
 
+What is this?
+-------------
+To do:
+  [ ] Add function to compute LD scores from array genome data
+
 Getting started: Prebuilt binaries
 -------------------------------
 Linux x86_64: https://github.com/ykhan1999/ldsc-cpp/releases/download/v0.6.3/ldsc_linux-x86_64_glibc2.17.tar.gz
