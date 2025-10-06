@@ -14,7 +14,7 @@ It outputs human-readable logs and a *.summary.txt with headline estimates.
 What is this?
 -------------
 To do:
-  [ ] Add function to compute LD scores from array genome data
+- Add function to compute LD scores from array genome data
 
 Getting started: Prebuilt binaries
 -------------------------------
